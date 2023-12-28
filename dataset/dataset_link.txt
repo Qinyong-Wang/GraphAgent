@@ -1,0 +1,5 @@
+download the pre-generated prompt text here:
+
+https://drive.google.com/drive/folders/1MNVaZfJE7AB1kWZtiizOW3-wm0NwQLjg?usp=sharing
+
+place the .json file under dataset folder
