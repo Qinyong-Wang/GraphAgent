@@ -1,28 +1,40 @@
 
-class Vector_db:
-    def __init__(self, db_name):
-        self.db_name = db_name
-        pass
+import pinecone
+import openai
 
-    def insert(self, vector):
-        pass
 
-    def retrieve(self, vector):
-        pass
+class Pinecone_db:
+    def __init__(self, api_key, environment, index_name):
+        self.api_key = api_key
+        self.index_name = index_name
+        self.environment = environment
+        self.pinecone_client = pinecone.Client(api_key=self.api_key, environment=self.environment)
+        self.index = self.pinecone_client.index(index_name=self.index_name)
 
-    def update(self, vector):
-        pass
+    def insert(self, vectors, namespace):
+        self.index.upsert(vectors=vectors, namespace=namespace)
 
-    def delete(self, vector):
-        pass
+    def retrieve(self, query_vector, namespace, top_k=10):
+        results = self.index.query(vector=query_vector, namespace=namespace, top_k=top_k)
+        return results
+
+    def update(self, vectors, ids, namespace):
+        self.index.upsert(vectors=vectors, ids=ids, namespace=namespace)
+
+    def delete(self, ids, namespace):
+        self.index.delete(ids=ids, namespace=namespace)
+
+i
 
 class Embedding_model:
-    def __init__(self, model_name):
+    def __init__(self, model_name, api_key):
         self.model_name = model_name
-        pass
+        openai.api_key = api_key
 
-    def embed(self, text):
-        pass
+    def embed(self, texts, max_tokens=2048):
+
+        return embeddings
+
 
 class GraphMemory:
 
