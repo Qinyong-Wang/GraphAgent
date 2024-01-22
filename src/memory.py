@@ -3,6 +3,7 @@
 import json
 import pinecone
 import openai
+import time
 
 
 class PineconeDB:
@@ -135,8 +136,8 @@ class GraphMemory:
 
     def aggregate_edge_info(self, edge):
         """Aggregates edge information."""
-        edge_dict = {"source_node_id": self.aggregate_node_info(self.graph.node_dict[edge[0]]),
-                     "target_node_id": self.aggregate_node_info(self.graph.node_dict[edge[1]]),
+        edge_dict = {"source_node_id": self.aggregate_node_info(self.graph.node_dict[edge["source_node_id"]]),
+                     "target_node_id": self.aggregate_node_info(self.graph.node_dict[edge["target_node_id"]]),
                      "edge_type": edge["edge_type"],
                      "edge_weight": edge["edge_weight"]}
 
@@ -217,15 +218,28 @@ class GraphMemory:
                                               namespace=edge_type,
                                               top_k=top_k)
         else:
-            results = self.vector_db.retrieve(query_vector=edge_embedding[0], top_k=top_k)
+            all_type_results = []
+            unique_result_ids = []
+            for edge_type in self.graph.edge_type_list:
+                results = self.vector_db.retrieve(query_vector=edge_embedding[0], 
+                                                  top_k=top_k, 
+                                                  namespace=edge_type)
+                for result in results:
+                    if result["id"] not in unique_result_ids:
+                        all_type_results.append(result)
+                        unique_result_ids.append(result["id"])
+
+            results = sorted(all_type_results, key=lambda x: -x["score"])[:top_k]
 
         retrieved_edge_ids = []
         for result in results:
-            retrieved_edge_ids.append(self.graph.edge_dict[result["id"]])
+            edge_id = result["id"].split("-")
+            retrieved_edge_ids.append(edge_id)
+
         retrieved_edge_infos = []
         for retrieved_edge_id in retrieved_edge_ids:
-            edge_id = retrieved_edge_id.split("-")
-            retrieved_edge_infos.append(self.aggregate_edge_info(edge_id))
+            edge = self.graph.edge_dict[(retrieved_edge_id[0], retrieved_edge_id[1])]
+            retrieved_edge_infos.append(self.aggregate_edge_info(edge))
 
         return  retrieved_edge_infos
 
@@ -241,6 +255,8 @@ class GraphMemory:
                     print(len(node_list))
                     self.memorize_nodes(node_list=node_list, node_type=node_type)
                     node_list = []
+                    if self.embedding_model in ["text-embedding-ada-002"]:
+                        time.sleep(0.2)
 
     def memorize_all_edges(self, batch_size=32):
         """Memorizes all edges."""
@@ -250,8 +266,10 @@ class GraphMemory:
                 edge_list.append(self.graph.edge_dict[edge_id])
                 if (len(edge_list) == batch_size or
                     edge_id == self.graph.edges_clustered_by_type[edge_type][-1]):
-                    self.memorize_edges(edge_list==edge_list, edge_type=edge_type)
+                    self.memorize_edges(edge_list=edge_list, edge_type=edge_type)
                     edge_list = []
+                    if self.embedding_model in ["text-embedding-ada-002"]:
+                        time.sleep(0.2)
 
     def forget_nodes(self, node_ids):
         """Forgets nodes."""
