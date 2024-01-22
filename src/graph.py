@@ -21,10 +21,16 @@ class Graph:
         self.node_in_degrees = {}
         self.node_out_degrees = {}
         self.node_type_list = []
+        self.nodes_clustered_by_type = {}
 
         self.edge_dict = {}
         self.edge_type_list = []
+        self.edges_clustered_by_type = {}
 
+        for edge_type in self.edge_type_list:
+            if edge_type in self.node_type_list:
+                raise ValueError("Edge type and node type cannot be the same.")
+            
         self.adjacency_list = {}
         self.sampled_adjacency_list = {}
 
@@ -61,13 +67,17 @@ class Graph:
             self.node_in_degrees[node["node_id"]] = 0
             self.node_out_degrees[node["node_id"]] = 0
             if node["node_type"] not in self.node_type_list:
+                self.nodes_clustered_by_type[node["node_type"]] = []
                 self.node_type_list.append(node["node_type"])
+            self.nodes_clustered_by_type[node["node_type"]].append(node["node_id"])
 
     def _edge_init(self):
         """Initializes edges in the graph."""
         for edge in self.node_edge_list["edge_list"]:
             if edge["edge_type"] not in self.edge_type_list:
+                self.edges_clustered_by_type[edge["edge_type"]] = []
                 self.edge_type_list.append(edge["edge_type"])
+            self.edges_clustered_by_type[edge["edge_type"]].append((edge["source_node_id"], edge["target_node_id"]))
 
             self.edge_dict[(edge["source_node_id"], edge["target_node_id"])] = edge
 
@@ -86,6 +96,8 @@ class Graph:
                 self.node_out_degrees[edge["target_node_id"]] += 1
                 self.node_in_degrees[edge["source_node_id"]] += 1
                 self.node_out_degrees[edge["source_node_id"]] += 1
+
+            
 
     def _average_degree_per_node_type(self):
         """Calculates average degree per node type."""
@@ -138,6 +150,9 @@ class Graph:
         """Samples neighbors based on normalized node degree."""
         if node_id not in self.adjacency_list:
             raise ValueError(f"Node {node_id} does not exist in the graph.")
+        
+        if (node_id, "navgd",hop, k) in self.sampled_adjacency_list:
+            return self.sampled_adjacency_list[(node_id, "navgd", hop, k)]
 
         n_hop_neighbors = self.get_n_hop_neighbor(node_id, hop_num=hop)
         node_importance = [(neighbor,
@@ -149,7 +164,8 @@ class Graph:
 
         sampled_neighbor = [{"node_id": ni[0], "hop_count": ni[1]}
                             for ni in node_importance[:min(k, len(node_importance))]]
-
+        
+        self.sampled_adjacency_list[(node_id, "navgd", hop, k)] = sampled_neighbor
         return sampled_neighbor
 
     def random_walk_neighbor_sampling(self, node_id, restart_prob=0.2,
@@ -157,6 +173,8 @@ class Graph:
         """Performs random walk neighbor sampling."""
         if node_id not in self.adjacency_list:
             raise ValueError(f"Node {node_id} does not exist in the graph.")
+        if (node_id, "rw", restart_prob, steps, walks, max_neighbor_num) in self.sampled_adjacency_list:
+            return self.sampled_adjacency_list[(node_id, "rw", restart_prob, steps, walks, max_neighbor_num)]
 
         freq_dict = {}
 
@@ -174,5 +192,7 @@ class Graph:
         sorted_nodes = sorted(freq_dict.items(), key=lambda x: x[1], reverse=True)
         sampled_neighbor = [{"node_id": node, "hop_count": 1}
                             for node, _ in sorted_nodes[:min(max_neighbor_num, len(sorted_nodes))]]
+
+        self.sampled_adjacency_list[(node_id, "rw", restart_prob, steps, walks, max_neighbor_num)] = sampled_neighbor
 
         return sampled_neighbor
