@@ -58,6 +58,9 @@ class Graph:
 
         if not required_edge_keys.issubset(set(self.node_edge_list["edge_list"][0])):
             raise ValueError("Graph edge format is not correct")
+        
+        if isinstance(self.node_edge_list["node_list"][0]['node_id'], str) == False:
+            raise ValueError("Graph node id must be string")
 
     def _node_init(self):
         """Initializes nodes in the graph."""
