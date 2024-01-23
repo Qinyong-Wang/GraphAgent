@@ -4,7 +4,8 @@ import json
 import pinecone
 import openai
 import time
-
+import copy
+from tqdm import tqdm
 
 class PineconeDB:
     """Pinecone database class."""
@@ -23,7 +24,6 @@ class PineconeDB:
         if namespace is None:
             raise ValueError("Namespace is not specified.")
         results = self.index.query(vector=query_vector, namespace=namespace, top_k=top_k)
-        print(results)
         return results["matches"]
 
     def update(self, vectors, namespace):
@@ -83,14 +83,15 @@ class GraphMemory:
         self.ignore_neighbor_attributes = ignore_neighbor_attributes
         if self.neighbor_sampling not in ["none", "normalized_node_degree", "random_walk"]:
             raise ValueError("Neighbor sampling is not supported.")
-        if self.neighbor_sampling == "normalized_node_degree":
-            self.neighbor_sampling_hop = 2
-            self.neighbor_sampling_k = 7
-        if self.neighbor_sampling == "random_walk":
-            self.neighbor_sampling_restart_prob = 0.382
-            self.neighbor_sampling_steps = 100
-            self.neighbor_sampling_walks = 5
-            self.neighbor_sampling_k = 7
+        
+        
+        self.neighbor_sampling_hop = 2
+        self.neighbor_sampling_k = 7
+        
+        self.neighbor_sampling_restart_prob = 0.382
+        self.neighbor_sampling_steps = 100
+        self.neighbor_sampling_walks = 5
+        self.neighbor_sampling_k = 7
 
     def aggregate_node_info(self, node):
         """Aggregates node information."""
@@ -108,18 +109,16 @@ class GraphMemory:
                                                                          steps=self.neighbor_sampling_steps,
                                                                          walks=self.neighbor_sampling_walks,
                                                                          max_neighbor_num=self.neighbor_sampling_k)
+        
         for neighbor in sampled_neighbors:
             neighbor_id = neighbor["node_id"]
             hop_count = neighbor["hop_count"]
-            neighbor_node = self.graph.node_dict[neighbor_id]
+            neighbor_node = copy.deepcopy(self.graph.node_dict[neighbor_id])
             neighbor_node["hop_count"] = hop_count
             node_neighbors.append(neighbor_node)
 
-        node_dict = {"node_id": node["node_id"],
-                     "node_name": node["node_name"], 
-                     "node_type": node["node_type"], 
-                     "node_attributes": node["node_attributes"],
-                     "neighbors": node_neighbors}
+        node_dict = copy.deepcopy(node)
+        node_dict["neighbors"] = node_neighbors
 
         if len(self.ignore_node_attributes) > 0:
             for attribute in self.ignore_node_attributes:
@@ -246,30 +245,36 @@ class GraphMemory:
     def memorize_all_nodes(self, batch_size=128):
         """Memorizes all nodes."""
         for node_type in self.graph.node_type_list:
-            print(len(self.graph.nodes_clustered_by_type[node_type]))
+            total_nodes = len(self.graph.nodes_clustered_by_type[node_type])
+            pbar = tqdm(total=total_nodes, desc=f"Processing {node_type} nodes")
             node_list = []
             for node_id in self.graph.nodes_clustered_by_type[node_type]:
                 node_list.append(self.graph.node_dict[node_id])
                 if (len(node_list) == batch_size or
                     node_id == self.graph.nodes_clustered_by_type[node_type][-1]):
-                    print(len(node_list))
                     self.memorize_nodes(node_list=node_list, node_type=node_type)
+                    pbar.update(len(node_list))
                     node_list = []
                     if self.embedding_model in ["text-embedding-ada-002"]:
                         time.sleep(0.2)
+            pbar.close()
 
-    def memorize_all_edges(self, batch_size=32):
+    def memorize_all_edges(self, batch_size=128):
         """Memorizes all edges."""
         for edge_type in self.graph.edge_type_list:
             edge_list = []
+            total_edges = len(self.graph.edges_clustered_by_type[edge_type])
+            pbar = tqdm(total=total_edges, desc=f"Processing {edge_type} edges")
             for edge_id in self.graph.edges_clustered_by_type[edge_type]:
                 edge_list.append(self.graph.edge_dict[edge_id])
                 if (len(edge_list) == batch_size or
                     edge_id == self.graph.edges_clustered_by_type[edge_type][-1]):
                     self.memorize_edges(edge_list=edge_list, edge_type=edge_type)
+                    pbar.update(len(edge_list))
                     edge_list = []
                     if self.embedding_model in ["text-embedding-ada-002"]:
                         time.sleep(0.2)
+            pbar.close()
 
     def forget_nodes(self, node_ids):
         """Forgets nodes."""
