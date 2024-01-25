@@ -1,5 +1,5 @@
 """Graph class to store graph data."""
-
+import copy
 import random
 from collections import deque
 
@@ -35,12 +35,13 @@ class Graph:
         self.sampled_adjacency_list = {}
 
         self._verify_graph_format()
+        self.node_label_attribute = "None"
+        self.test_node_labels = {}
+        self.test_edge_labels = {}
         self._node_init()
         self._edge_init()
 
         self.average_in_degrees, self.average_out_degrees = self._average_degree_per_node_type()
-        self.node_labels = []
-        self.edge_labels = []
 
     def _verify_graph_format(self):
         """Verifies the format of the input graph."""
@@ -66,7 +67,9 @@ class Graph:
         """Initializes nodes in the graph."""
         for node in self.node_edge_list["node_list"]:
             self.adjacency_list[node["node_id"]] = []
-            self.node_dict[node["node_id"]] = node
+            self.node_dict[node["node_id"]] = copy.deepcopy(node)
+            if node["node_id"] in self.test_node_labels:
+                self.node_dict[node["node_id"]]["node_attributes"][self.node_label_attribute] = "<MASKED>"
             self.node_in_degrees[node["node_id"]] = 0
             self.node_out_degrees[node["node_id"]] = 0
             if node["node_type"] not in self.node_type_list:

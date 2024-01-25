@@ -135,10 +135,11 @@ class GraphMemory:
 
     def aggregate_edge_info(self, edge):
         """Aggregates edge information."""
-        edge_dict = {"source_node_id": self.aggregate_node_info(self.graph.node_dict[edge["source_node_id"]]),
-                     "target_node_id": self.aggregate_node_info(self.graph.node_dict[edge["target_node_id"]]),
-                     "edge_type": edge["edge_type"],
-                     "edge_weight": edge["edge_weight"]}
+        edge_dict = {"edge_type": edge["edge_type"],
+                     "edge_weight": edge["edge_weight"],
+                     "source_node": self.aggregate_node_info(self.graph.node_dict[edge["source_node_id"]]),
+                     "target_node": self.aggregate_node_info(self.graph.node_dict[edge["target_node_id"]])
+                     }
 
         return edge_dict
 
@@ -237,6 +238,8 @@ class GraphMemory:
 
         retrieved_edge_infos = []
         for retrieved_edge_id in retrieved_edge_ids:
+            if (retrieved_edge_id[0], retrieved_edge_id[1]) not in self.graph.edge_dict:
+                continue
             edge = self.graph.edge_dict[(retrieved_edge_id[0], retrieved_edge_id[1])]
             retrieved_edge_infos.append(self.aggregate_edge_info(edge))
 
@@ -273,7 +276,7 @@ class GraphMemory:
                     pbar.update(len(edge_list))
                     edge_list = []
                     if self.embedding_model in ["text-embedding-ada-002"]:
-                        time.sleep(0.2)
+                        time.sleep(0.5)
             pbar.close()
 
     def forget_nodes(self, node_ids):
